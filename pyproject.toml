@@ -3,8 +3,21 @@ name = "msc"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
-dependencies = []
+requires-python = ">=3.9"
+dependencies = [
+    "msc-adb",
+    "msc-base",
+    "msc-droidcast",
+    "msc-minicap",
+    "msc-mumu",
+]
 
 [tool.uv.workspace]
 members = ["msc-base", "msc-droidcast", "msc-minicap", "msc-adb", "msc-mumu"]
+
+[tool.uv.sources]
+msc-base = { workspace = true }
+msc-adb = { workspace = true }
+msc-droidcast = { workspace = true }
+msc-minicap = { workspace = true }
+msc-mumu = { workspace = true }
