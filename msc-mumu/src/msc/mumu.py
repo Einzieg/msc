@@ -7,7 +7,7 @@ from mmumu import MuMuApi, get_mumu_path
 from msc.screencap import ScreenCap
 
 
-class MuMuScreenCap(ScreenCap):
+class MuMuCap(ScreenCap):
     MUMU_API_DLL_PATH = r"\shell\sdk\external_renderer_ipc.dll"
 
     def __init__(
@@ -91,7 +91,7 @@ class MuMuScreenCap(ScreenCap):
 if __name__ == '__main__':
     import time
 
-    d = MuMuScreenCap(0, r"C:\Program Files\Netease\MuMu Player 12")
+    d = MuMuCap(0, r"C:\Program Files\Netease\MuMu Player 12")
     s = time.time()
     np_arr = d.screencap()
     print((time.time() - s) * 1000)
