@@ -2,7 +2,8 @@ import ctypes
 
 import cv2
 import numpy as np
-from mmumu import MuMuApi, get_mumu_path
+from mmumu.api import MuMuApi
+from mmumu.base import get_mumu_path
 
 from msc.screencap import ScreenCap
 
