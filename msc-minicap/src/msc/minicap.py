@@ -55,69 +55,65 @@ class MiniCapStream:
         frame_body = bytearray()
         max_buf_size = 4096
 
-        while not self.stop_event.is_set():
-            chunk = self.sock.recv(max_buf_size)
-            if not chunk:
-                break
-
-            # logger.info(f"chunk(length={len(chunk)})", )
-            cursor = 0
-            while cursor < len(chunk):
-                if read_banner_bytes < banner_length:
-                    if read_banner_bytes == 0:
-                        banner["version"] = chunk[cursor]
-                    elif read_banner_bytes == 1:
-                        banner["length"] = banner_length = chunk[cursor]
-                    elif 2 <= read_banner_bytes <= 5:
-                        banner["pid"] += (
-                            chunk[cursor] << ((read_banner_bytes - 2) * 8)
-                        ) & 0xFFFFFFFF
-                    elif 6 <= read_banner_bytes <= 9:
-                        banner["realWidth"] += (
-                            chunk[cursor] << ((read_banner_bytes - 6) * 8)
-                        ) & 0xFFFFFFFF
-                    elif 10 <= read_banner_bytes <= 13:
-                        banner["realHeight"] += (
-                            chunk[cursor] << ((read_banner_bytes - 10) * 8)
-                        ) & 0xFFFFFFFF
-                    elif 14 <= read_banner_bytes <= 17:
-                        banner["virtualWidth"] += (
-                            chunk[cursor] << ((read_banner_bytes - 14) * 8)
-                        ) & 0xFFFFFFFF
-                    elif 18 <= read_banner_bytes <= 21:
-                        banner["virtualHeight"] += (
-                            chunk[cursor] << ((read_banner_bytes - 18) * 8)
-                        ) & 0xFFFFFFFF
-                    elif read_banner_bytes == 22:
-                        banner["orientation"] = chunk[cursor] * 90
-                    elif read_banner_bytes == 23:
-                        banner["quirks"] = chunk[cursor]
-
-                    cursor += 1
-                    read_banner_bytes += 1
-
-                    if read_banner_bytes == banner_length:
-                        logger.info(
-                            f"banner {banner}",
-                        )
-                else:
-                    max_buf_size = frame_body_length
-                    if len(chunk) - cursor >= frame_body_length:
-                        frame_body.extend(chunk[cursor : cursor + frame_body_length])
-                        with self.data_available:
-                            self.data = frame_body
-                            self.data_available.notify_all()  # 通知等待的线程
-                        cursor += frame_body_length
-                        read_frame_bytes = 0
-                        frame_body_length = (
-                            banner["virtualWidth"] * banner["virtualHeight"] * 4
-                        )
-                        frame_body = bytearray()
+        try:
+            while not self.stop_event.is_set():
+                try:
+                    chunk = self.sock.recv(max_buf_size)
+                    if not chunk:  # socket 已关闭
+                        break
+                except OSError as e:
+                    # Windows下主动关闭socket会触发WinError 10053
+                    if e.errno in (10053, 10054) or "WinError 10053" in str(e):
+                        logger.info("Socket closed, stopping read_stream gracefully")
+                        break
                     else:
-                        frame_body.extend(chunk[cursor:])
-                        frame_body_length -= len(chunk) - cursor
-                        read_frame_bytes += len(chunk) - cursor
-                        cursor = len(chunk)
+                        raise
+
+                cursor = 0
+                while cursor < len(chunk):
+                    if read_banner_bytes < banner_length:
+                        if read_banner_bytes == 0:
+                            banner["version"] = chunk[cursor]
+                        elif read_banner_bytes == 1:
+                            banner["length"] = banner_length = chunk[cursor]
+                        elif 2 <= read_banner_bytes <= 5:
+                            banner["pid"] += (chunk[cursor] << ((read_banner_bytes - 2) * 8)) & 0xFFFFFFFF
+                        elif 6 <= read_banner_bytes <= 9:
+                            banner["realWidth"] += (chunk[cursor] << ((read_banner_bytes - 6) * 8)) & 0xFFFFFFFF
+                        elif 10 <= read_banner_bytes <= 13:
+                            banner["realHeight"] += (chunk[cursor] << ((read_banner_bytes - 10) * 8)) & 0xFFFFFFFF
+                        elif 14 <= read_banner_bytes <= 17:
+                            banner["virtualWidth"] += (chunk[cursor] << ((read_banner_bytes - 14) * 8)) & 0xFFFFFFFF
+                        elif 18 <= read_banner_bytes <= 21:
+                            banner["virtualHeight"] += (chunk[cursor] << ((read_banner_bytes - 18) * 8)) & 0xFFFFFFFF
+                        elif read_banner_bytes == 22:
+                            banner["orientation"] = chunk[cursor] * 90
+                        elif read_banner_bytes == 23:
+                            banner["quirks"] = chunk[cursor]
+
+                        cursor += 1
+                        read_banner_bytes += 1
+
+                        if read_banner_bytes == banner_length:
+                            logger.info(f"banner {banner}")
+                    else:
+                        max_buf_size = frame_body_length
+                        if len(chunk) - cursor >= frame_body_length:
+                            frame_body.extend(chunk[cursor: cursor + frame_body_length])
+                            with self.data_available:
+                                self.data = frame_body
+                                self.data_available.notify_all()
+                            cursor += frame_body_length
+                            read_frame_bytes = 0
+                            frame_body_length = banner["virtualWidth"] * banner["virtualHeight"] * 4
+                            frame_body = bytearray()
+                        else:
+                            frame_body.extend(chunk[cursor:])
+                            frame_body_length -= len(chunk) - cursor
+                            read_frame_bytes += len(chunk) - cursor
+                            cursor = len(chunk)
+        finally:
+            logger.info("read_stream thread exiting")
 
     def stop(self):
         logger.info("Stopping the stream")
