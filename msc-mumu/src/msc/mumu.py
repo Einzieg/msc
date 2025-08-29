@@ -1,4 +1,5 @@
 import ctypes
+import os
 
 import cv2
 import numpy as np
@@ -10,7 +11,7 @@ from msc.screencap import ScreenCap
 
 class MuMuCap(ScreenCap):
     MUMU_API_DLL_PATH = r"\shell\sdk\external_renderer_ipc.dll"
-
+    MUMU_12_5_API_DLL_PATH = r"\nx_device\12.0\shell\sdk\external_renderer_ipc.dll"
     def __init__(
             self,
             instance_index: int,
@@ -32,7 +33,13 @@ class MuMuCap(ScreenCap):
         self.display_id = display_id
         self.instance_index = instance_index
         self.emulator_install_path = emulator_install_path or get_mumu_path()
+        if not os.path.exists(emulator_install_path+"uninstall.exe"):
+            raise FileNotFoundError("模拟器安装目录下未找到卸载程序，当前安装路径不正确!")
         self.dllPath = dll_path or self.emulator_install_path + self.MUMU_API_DLL_PATH
+        if not os.path.exists(self.dllPath):
+            self.dllPath = self.emulator_install_path + self.MUMU_12_5_API_DLL_PATH
+        if not os.path.exists(self.dllPath):
+            raise FileNotFoundError("external_renderer_ipc.dll not found!")
 
         self.width: int
         self.height: int
